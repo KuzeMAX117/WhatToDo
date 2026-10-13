@@ -1,0 +1,22 @@
+{
+  "name": "todo-ai-app",
+  "version": "0.1.0",
+  "description": "AI 待办提取助手 —— 粘贴通知文本，自动识别待办与截止时间",
+  "main": "main.js",
+  "author": "todo-ai",
+  "license": "MIT",
+  "scripts": {
+    "build": "vite build",
+    "start": "npm run build && electron .",
+    "start:dev": "npm run build && electron . --dev",
+    "screenshot": "npm run build && SCREENSHOT=1 electron ."
+  },
+  "dependencies": {
+    "vue": "^3.4.21"
+  },
+  "devDependencies": {
+    "@vitejs/plugin-vue": "^5.0.4",
+    "electron": "^31.0.0",
+    "vite": "^5.2.0"
+  }
+}

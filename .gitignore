@@ -1,0 +1,27 @@
+# 依赖与构建产物
+node_modules/
+dist/
+out/
+
+# 应用本地数据（任务列表、API Key、配置——绝不提交）
+userData/
+*.db
+*.sqlite
+.e2e/
+
+# 本地环境与密钥
+.env
+.env.local
+*.pem
+
+# 截图 / 打包产物 / 系统文件
+*.png
+*.jpg
+*.jpeg
+*.gif
+screenshot.png
+winbuild/
+*.zip
+Thumbs.db
+.DS_Store
+*.log
