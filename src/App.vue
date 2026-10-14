@@ -27,7 +27,7 @@
 
       <!-- 待办列表（主视图） -->
       <main class="list" ref="listRef" v-if="todos.length">
-        <template v-for="(t, idx) in todos" :key="t.id">
+        <template v-for="(t, idx) in displayTodos" :key="t.id">
           <!-- 拖拽插入指示线 -->
           <div
             v-if="dragState && dragState.id !== t.id && idx === dragState.target"
@@ -100,6 +100,30 @@ import SettingsModal from './components/SettingsModal.vue';
 import { applyTheme } from './theme.js';
 
 const todos = ref([]);
+const config = ref({});  // 保存全局配置（含 userSorted 标记）
+
+// 显示排序：未完成在上、已完成在下
+// 未完成组内默认按紧急度：有截止时间的（越近越前）→ 只有开始时间的 → 没时间要求的
+// 用户拖拽过后（userSorted=true）按用户手动顺序显示，不再自动排
+const displayTodos = computed(() => {
+  const done = todos.value.filter(t => t.done);
+  const undone = todos.value.filter(t => !t.done);
+  if (!config.value.userSorted) undone.sort(byUrgency);
+  return [...undone, ...done];
+});
+function byUrgency(a, b) {
+  const aDead = a.endAt || a.deadline || '';
+  const bDead = b.endAt || b.deadline || '';
+  if (aDead && bDead) return aDead.localeCompare(bDead);
+  if (aDead) return -1;
+  if (bDead) return 1;
+  const aStart = a.startAt || '';
+  const bStart = b.startAt || '';
+  if (aStart && bStart) return aStart.localeCompare(bStart);
+  if (aStart) return -1;
+  if (bStart) return 1;
+  return 0;
+}
 const parseOpen = ref(false);
 const newTitle = ref('');
 const detailTodo = ref(null);
@@ -137,6 +161,7 @@ onMounted(async () => {
   // 应用已保存的主题（深色/浅色/自定义）
   const saved = await window.todoAPI.getConfig();
   applyTheme(saved);
+  config.value = saved;
 });
 // 即时持久化（拖拽只在松手时重排一次，无高频写盘；改回立即保存避免后台节流丢数据）
 // 持久化：Vue 响应式数组是 Proxy，Electron IPC 无法直接克隆，需先转成普通数据
@@ -183,7 +208,7 @@ function startDrag(e, todo) {
   pressStart = { x: e.clientX, y: e.clientY };
   clearTimeout(pressTimer);
   pressTimer = setTimeout(() => {
-    dragState.value = { id: todo.id, deltaY: 0, target: todos.value.findIndex(t => t.id === todo.id) };
+    dragState.value = { id: todo.id, deltaY: 0, target: displayTodos.value.findIndex(t => t.id === todo.id) };
     wasDragging = true;
   }, 300); // 长按 300ms 进入拖拽（更跟手）
 }
@@ -201,7 +226,7 @@ function onPointerMove(e) {
   else if (e.clientY > lr.bottom - 36) list.scrollTop += 10;
   const items = [...list.querySelectorAll('.todo-item')];
   if (!items.length) return;
-  const cur = todos.value.findIndex(t => t.id === st.id);
+  const cur = displayTodos.value.findIndex(t => t.id === st.id);
   let target = items.length - 1;
   // 统一用视口坐标（getBoundingClientRect 与 clientY 同基准）
   for (let i = 0; i < items.length; i++) {
@@ -218,13 +243,14 @@ function onPointerUp() {
   pressTimer = null;
   if (dragState.value) {
     const st = dragState.value;
-    const arr = [...todos.value];
+    const arr = [...displayTodos.value];   // 基于显示顺序（未完成在上）重排
     const cur = arr.findIndex(t => t.id === st.id);
     const target = st.target ?? cur; // -1 表示没越过中线，不重排
     if (target >= 0 && target !== cur) {
       const [m] = arr.splice(cur, 1);
       arr.splice(target, 0, m);
       todos.value = arr; // 一次性重排，其他卡片 .18s 平滑让位
+      markUserSorted();  // 拖拽后按用户顺序，不再自动紧急度排
     }
     dragState.value = null;
   }
@@ -246,6 +272,14 @@ onBeforeUnmount(() => {
   window.removeEventListener('pointerup', onPointerUp);
   if (clockTimer) clearInterval(clockTimer);
 });
+
+// 用户手动拖拽过 → 记住，之后按用户顺序显示，不再自动紧急度排序
+async function markUserSorted() {
+  if (config.value.userSorted) return;
+  config.value.userSorted = true;
+  const cur = await window.todoAPI.getConfig();
+  await window.todoAPI.setConfig({ ...cur, userSorted: true });
+}
 
 // ---------- 详情弹窗 ----------
 function openDetail(id) {

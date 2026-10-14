@@ -104,7 +104,7 @@
       </div>
       <div class="time-btns">
         <button class="btn-ghost" @click="clearTime">清除时间</button>
-        <button class="btn-parse" @click="applyTime" :disabled="!startSel">应用时间</button>
+        <button class="btn-parse" @click="applyTime" :disabled="!startSel">{{ applied ? '✓ 已应用' : '应用时间' }}</button>
       </div>
     </div>
 
@@ -267,6 +267,7 @@ function isRange(d) {
 function isToday(d) { return sameDay(d, new Date()); }
 
 // ---------- 应用 / 清除 ----------
+const applied = ref(false);  // 应用时间按钮反馈：点击后短暂显示"✓ 已应用"
 function fmtHM(h, m) { return `${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}`; }
 function fmtDate(d) {
   if (!d) return '';
@@ -277,6 +278,8 @@ function applyTime() {
   const startAt = `${fmtDate(startSel.value)} ${fmtHM(startH.value, startM.value)}`;
   const endAt = endSel.value ? `${fmtDate(endSel.value)} ${fmtHM(endH.value, endM.value)}` : '';
   emit('update-time', { startAt, endAt });
+  applied.value = true;  // 按钮短暂变为"✓ 已应用"反馈
+  setTimeout(() => { applied.value = false; }, 1500);
 }
 function clearTime() {
   startSel.value = new Date(now.getFullYear(), now.getMonth(), now.getDate());
